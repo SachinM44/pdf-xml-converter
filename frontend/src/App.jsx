@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import React from 'react';
-// Protected Route component
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
