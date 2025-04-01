@@ -208,20 +208,66 @@ function convertToXML(data) {
   // Add content
   xml += '  <content>\n';
   
-  // Split text into paragraphs and process each page
+  // Split text into pages
   const pages = data.text.split('\n\n\n');
   pages.forEach((page, index) => {
     xml += `    <page number="${index + 1}">\n`;
-    const paragraphs = page.split('\n\n');
-    paragraphs.forEach(paragraph => {
-      if (paragraph.trim()) {
-        // Clean up the paragraph text
-        const cleanParagraph = paragraph.trim()
-          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-          .replace(/[\r\n]+/g, ' '); // Replace newlines with space
-        xml += `      <paragraph>${escapeXml(cleanParagraph)}</paragraph>\n`;
+    
+    // Process each line to detect structure
+    const lines = page.split('\n');
+    let currentList = null;
+    let currentTable = null;
+    let tableRows = [];
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+
+      // Detect lists
+      if (trimmedLine.match(/^[-•*]\s/)) {
+        if (!currentList) {
+          xml += '      <list>\n';
+          currentList = true;
+        }
+        xml += `        <list-item>${escapeXml(trimmedLine.replace(/^[-•*]\s/, ''))}</list-item>\n`;
+      } else if (currentList) {
+        xml += '      </list>\n';
+        currentList = null;
+      }
+
+      // Detect tables
+      if (trimmedLine.includes('|')) {
+        if (!currentTable) {
+          xml += '      <table>\n';
+          currentTable = true;
+        }
+        const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell);
+        if (cells.length > 0) {
+          xml += '        <row>\n';
+          cells.forEach(cell => {
+            xml += `          <cell>${escapeXml(cell)}</cell>\n`;
+          });
+          xml += '        </row>\n';
+        }
+      } else if (currentTable) {
+        xml += '      </table>\n';
+        currentTable = null;
+      }
+
+      // Detect headers
+      if (trimmedLine.length < 100 && trimmedLine.match(/^[A-Z\s]{3,}$/)) {
+        xml += `      <header>${escapeXml(trimmedLine)}</header>\n`;
+      }
+      // Detect paragraphs
+      else if (!currentList && !currentTable) {
+        xml += `      <paragraph>${escapeXml(trimmedLine)}</paragraph>\n`;
       }
     });
+
+    // Close any open elements
+    if (currentList) xml += '      </list>\n';
+    if (currentTable) xml += '      </table>\n';
+
     xml += '    </page>\n';
   });
 
