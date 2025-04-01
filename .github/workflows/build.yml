@@ -1,0 +1,58 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Run Backend Tests
+        run: |
+          cd backend
+          npm test
+
+      - name: Run Frontend Tests
+        run: |
+          cd frontend
+          npm test
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Build Backend
+        run: |
+          cd backend
+          npm run build
+
+      - name: Check Code Style
+        run: |
+          cd backend
+          npm run lint
+          cd ../frontend
+          npm run lint 
