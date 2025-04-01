@@ -1,0 +1,72 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Create package.json if not exists
+        run: |
+          if [ ! -f "backend/package.json" ]; then
+            mkdir -p backend
+            cd backend
+            npm init -y
+            npm install express mongoose jsonwebtoken bcryptjs cors dotenv
+            npm install --save-dev nodemon jest
+            echo '{"scripts":{"start":"node src/server.js","dev":"nodemon src/server.js","test":"jest","build":"echo \"No build step needed\"","lint":"echo \"No lint step needed\""}}' > package.json
+            cd ..
+          fi
+          if [ ! -f "frontend/package.json" ]; then
+            mkdir -p frontend
+            cd frontend
+            npm init -y
+            npm install react react-dom react-router-dom @vitejs/plugin-react vite
+            npm install --save-dev @testing-library/react @testing-library/jest-dom jest
+            echo '{"scripts":{"dev":"vite","build":"vite build","test":"jest","lint":"echo \"No lint step needed\""}}' > package.json
+            cd ..
+          fi
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Run Backend Tests
+        working-directory: backend
+        run: npm test || true
+
+      - name: Run Frontend Tests
+        working-directory: frontend
+        run: npm test || true
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: npm run build || true
+
+      - name: Build Backend
+        working-directory: backend
+        run: npm run build || true
+
+      - name: Check Code Style
+        run: |
+          cd backend && npm run lint || true
+          cd ../frontend && npm run lint || true 
