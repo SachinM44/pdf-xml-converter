@@ -26,9 +26,8 @@ function App() {
     const verifyBackendConnection = async () => {
       try {
         await checkBackendHealth();
-        console.log('Successfully connected to backend');
       } catch (error) {
-        console.error('Failed to connect to backend:', error);
+        // Backend connection failed, handled silently
       }
     };
 

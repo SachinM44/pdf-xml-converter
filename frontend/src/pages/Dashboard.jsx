@@ -76,7 +76,6 @@ export default function Dashboard() {
       setHasMore(data.length === 10); // Assuming 10 items per page
       setPage(nextPage);
     } catch (error) {
-      console.error('Error loading more conversions:', error);
       toast.error('Failed to load more conversions');
     } finally {
       setIsLoadingMore(false);
@@ -124,28 +123,26 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/conversions/${conversion._id}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-
-      const blob = await response.blob();
+      toast.loading('Downloading XML...');
+      
+      const blob = await conversionService.downloadXML(conversion._id);
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
       a.download = conversion.originalFileName.replace('.pdf', '.xml');
       document.body.appendChild(a);
       a.click();
+      
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
+      toast.dismiss();
+      toast.success('XML downloaded successfully');
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download the converted file');
+      toast.dismiss();
+      toast.error(error.message || 'Failed to download the converted file');
     }
   };
 
@@ -156,22 +153,22 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/conversions/${conversion._id}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch XML');
+      toast.loading('Loading preview...');
+      
+      try {
+        const blob = await conversionService.downloadXML(conversion._id);
+        const xmlContent = await blob.text();
+        
+        setSelectedConversion({ ...conversion, xml: xmlContent });
+        setShowPreview(true);
+      } catch (error) {
+        throw new Error('Could not load preview: ' + (error.message || 'Unknown error'));
       }
-
-      const xml = await response.text();
-      setSelectedConversion({ ...conversion, xml });
-      setShowPreview(true);
+      
+      toast.dismiss();
     } catch (error) {
-      console.error('Preview error:', error);
-      toast.error('Failed to load preview');
+      toast.dismiss();
+      toast.error(error.message || 'Failed to load preview');
     }
   };
 
@@ -206,56 +203,61 @@ export default function Dashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white shadow rounded-lg p-6 mb-6">
-            <h2 className="text-lg font-medium mb-4">Upload PDF</h2>
-            <div className="flex items-center space-x-4">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-md file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-indigo-50 file:text-indigo-700
-                  hover:file:bg-indigo-100"
-              />
-              <Button
-                onClick={handleUpload}
-                disabled={loading || !selectedFile}
-                loading={loading}
-              >
-                Upload
-              </Button>
-            </div>
-          </div>
-
-          {showPreview ? (
+        <div className="px-4 sm:px-0">
+          {showPreview && selectedConversion ? (
             <div className="bg-white shadow rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">XML Preview</h2>
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => setShowPreview(false)}
-                    variant="secondary"
-                  >
-                    Back to List
-                  </Button>
-                  <Button
-                    onClick={() => handleDownload(selectedConversion)}
-                  >
-                    Download XML
-                  </Button>
-                </div>
+                <h2 className="text-lg font-medium">
+                  XML Preview: {selectedConversion.originalFileName}
+                </h2>
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-300"
+                >
+                  Back to List
+                </button>
               </div>
-              <XmlViewer
-                xml={selectedConversion.xml}
-                fileName={selectedConversion.originalFileName}
-              />
+              <div className="mt-4 border rounded-lg overflow-auto max-h-[600px] p-4 bg-gray-50">
+                <XmlViewer xml={selectedConversion.xml} />
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => handleDownload(selectedConversion)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+                >
+                  Download XML
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-white shadow rounded-lg p-6">
+              <h2 className="text-lg font-medium mb-4">Upload PDF</h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Choose a PDF file
+                </label>
+                <div className="mt-1 flex items-center">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="mr-3"
+                    disabled={loading}
+                  />
+                  <Button
+                    onClick={handleUpload}
+                    loading={loading}
+                    disabled={!selectedFile || loading}
+                  >
+                    Upload
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!showPreview && (
+            <div className="bg-white shadow rounded-lg p-6 mt-6">
               <h2 className="text-lg font-medium mb-4">Conversion History</h2>
               <div className="max-h-[600px] overflow-y-auto">
                 {conversions.length === 0 ? (
@@ -288,30 +290,25 @@ export default function Dashboard() {
                                 <Button
                                   onClick={() => handlePreview(conversion)}
                                   variant="secondary"
+                                  size="sm"
                                 >
                                   Preview
                                 </Button>
                                 <Button
                                   onClick={() => handleDownload(conversion)}
+                                  size="sm"
                                 >
                                   Download
                                 </Button>
                               </>
                             )}
-                            {conversion.status === 'failed' && (
-                              <p className="text-red-600 text-sm">{conversion.error}</p>
-                            )}
                           </div>
                         </div>
                       </div>
                     ))}
-                    {isLoadingMore && (
-                      <div className="flex justify-center py-4">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                      </div>
-                    )}
                   </div>
                 )}
+                {isLoadingMore && <p className="text-center mt-4">Loading more...</p>}
               </div>
             </div>
           )}

@@ -1,8 +1,0 @@
-{
-  "buildCommand": "npm install --production=false && npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --production=false",
-  "framework": "vite",
-  "outputDirectory": "dist",
-  "public": true
-}
