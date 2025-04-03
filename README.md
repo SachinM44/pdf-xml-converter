@@ -2,6 +2,22 @@
 
 A full-stack web application that allows users to convert PDF documents to structured XML format. Built with React, Node.js, and MongoDB.
 
+## 🔗 Live Demo
+
+The application is deployed and available at: [https://pdf-xml-converter.netlify.app](https://pdf-xml-converter.netlify.app)
+
+## 📋 Challenge Implementation
+
+This project was developed for the "Full Stack Developer Intern Coding Challenge" and implements the **Level 3 (Advanced Implementation)** requirements. The key features include:
+
+- Advanced PDF parsing that preserves complex formatting (tables, lists, styling)
+- XML output that closely mirrors the PDF's structure and layout
+- Interactive multi-page viewer for both PDFs and converted XML
+- Real-time conversion status updates
+- Advanced filtering and searching of conversion history
+- Comprehensive error handling and edge cases
+- Responsive design that works well on mobile devices
+
 ## 🌟 Features
 
 ### Level 1 Implementation
@@ -27,10 +43,22 @@ A full-stack web application that allows users to convert PDF documents to struc
 - ✅ XML Search & Filter
 - ✅ Progress Indicators
 
+## 📝 Approach to PDF-to-XML Conversion
+
+The conversion process involves several steps:
+
+1. **Document Parsing**: Using a specialized PDF parsing library to extract structured content
+2. **Structure Identification**: Analyzing the document to identify headers, paragraphs, tables, lists, and other elements
+3. **XML Generation**: Creating a well-formed XML document that preserves the document hierarchy
+4. **Styling Preservation**: Maintaining font information, colors, and other styling elements
+5. **Layout Maintenance**: Preserving the spatial relationships between elements
+
+The conversion is performed asynchronously, allowing users to continue using the application while their documents are being processed.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v20 or higher)
+- Node.js (v18 or higher)
 - MongoDB
 - Git
 
@@ -110,7 +138,7 @@ pdf-xml-converter/
 │   │   ├── middleware/
 │   │   ├── models/
 │   │   ├── routes/
-│   │   └── server.js
+│   │   └── index.js
 │   ├── .env
 │   └── package.json
 ├── frontend/
@@ -159,10 +187,24 @@ npm run lint
 
 ## 🚀 Deployment
 
-The application can be deployed using platforms like:
-- Frontend: Vercel, Netlify
-- Backend: Heroku, Railway
+The application is deployed on:
+- Frontend: Netlify ([https://pdf-xml-converter.netlify.app](https://pdf-xml-converter.netlify.app))
+- Backend: AWS EC2 instance
 - Database: MongoDB Atlas
+
+## 🔍 Limitations and Future Improvements
+
+### Limitations
+- Currently supports PDFs up to 5MB in size
+- Complex tables with merged cells may not preserve exact structure
+- Some highly specialized PDF features may not be fully supported
+
+### Future Improvements
+- Add batch processing for multiple files
+- Implement user-defined XML templates
+- Add additional export formats (JSON, CSV)
+- Improve performance for very large documents
+- Add collaborative features for team environments
 
 ## 🤝 Contributing
 

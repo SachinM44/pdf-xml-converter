@@ -5,13 +5,39 @@ const XmlViewer = ({ xml, fileName }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterType, setFilterType] = useState('all');
+  const [parseError, setParseError] = useState(null);
   const viewerRef = useRef(null);
 
   // Parse XML string into a DOM object
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xml, 'text/xml');
-  const pages = xmlDoc.getElementsByTagName('page');
-  const totalPages = pages.length;
+  let xmlDoc = null;
+  let pages = [];
+  let totalPages = 0;
+
+  try {
+    if (!xml) {
+      setParseError('No XML content available');
+    } else {
+      const parser = new DOMParser();
+      xmlDoc = parser.parseFromString(xml, 'text/xml');
+      
+      // Check for parsing errors
+      const parseErrorNode = xmlDoc.querySelector('parsererror');
+      if (parseErrorNode) {
+        setParseError('Invalid XML format');
+        console.error('XML parsing error:', parseErrorNode.textContent);
+      } else {
+        pages = xmlDoc.getElementsByTagName('page');
+        totalPages = pages.length;
+        
+        if (totalPages === 0) {
+          setParseError('No pages found in the XML document');
+        }
+      }
+    }
+  } catch (error) {
+    setParseError(`Error parsing XML: ${error.message}`);
+    console.error('XML viewer error:', error);
+  }
 
   // Filter content based on search term and type
   const filterContent = (content) => {
@@ -20,6 +46,8 @@ const XmlViewer = ({ xml, fileName }) => {
   };
 
   const getFilteredContent = () => {
+    if (!xmlDoc || parseError || currentPage > totalPages) return [];
+    
     const page = pages[currentPage - 1];
     if (!page) return [];
 
@@ -110,55 +138,66 @@ const XmlViewer = ({ xml, fileName }) => {
         ref={viewerRef}
         className="prose max-w-none overflow-y-auto max-h-[600px] p-4 border border-gray-200 rounded-lg"
       >
-        {getFilteredContent().map((element, index) => {
-          const tagName = element.tagName.toLowerCase();
-          const content = element.textContent;
-          
-          switch (tagName) {
-            case 'header':
-              return (
-                <h2 key={index} className="text-xl font-bold mt-4 mb-2">
-                  {highlightText(content)}
-                </h2>
-              );
-            case 'paragraph':
-              return (
-                <p key={index} className="mb-4">
-                  {highlightText(content)}
-                </p>
-              );
-            case 'list':
-              return (
-                <ul key={index} className="list-disc pl-4 mb-4">
-                  {Array.from(element.children).map((item, i) => (
-                    <li key={i} className="mb-2">
-                      {highlightText(item.textContent)}
-                    </li>
-                  ))}
-                </ul>
-              );
-            case 'table':
-              return (
-                <div key={index} className="overflow-x-auto mb-4">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <tbody>
-                      {Array.from(element.children).map((row, i) => (
-                        <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
-                          {Array.from(row.children).map((cell, j) => (
-                            <td key={j} className="px-4 py-2 border">
-                              {highlightText(cell.textContent)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            default:
-              return null;
-          }
-        })}
+        {parseError ? (
+          <div className="p-4 bg-red-50 text-red-700 rounded-md">
+            <h3 className="font-bold">Error</h3>
+            <p>{parseError}</p>
+          </div>
+        ) : getFilteredContent().length === 0 ? (
+          <div className="p-4 text-gray-500">
+            {searchTerm ? 'No matching content found' : 'No content available on this page'}
+          </div>
+        ) : (
+          getFilteredContent().map((element, index) => {
+            const tagName = element.tagName.toLowerCase();
+            const content = element.textContent;
+            
+            switch (tagName) {
+              case 'header':
+                return (
+                  <h2 key={index} className="text-xl font-bold mt-4 mb-2">
+                    {highlightText(content)}
+                  </h2>
+                );
+              case 'paragraph':
+                return (
+                  <p key={index} className="mb-4">
+                    {highlightText(content)}
+                  </p>
+                );
+              case 'list':
+                return (
+                  <ul key={index} className="list-disc pl-4 mb-4">
+                    {Array.from(element.children).map((item, i) => (
+                      <li key={i} className="mb-2">
+                        {highlightText(item.textContent)}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              case 'table':
+                return (
+                  <div key={index} className="overflow-x-auto mb-4">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <tbody>
+                        {Array.from(element.children).map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : ''}>
+                            {Array.from(row.children).map((cell, j) => (
+                              <td key={j} className="px-4 py-2 border">
+                                {highlightText(cell.textContent)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              default:
+                return null;
+            }
+          })
+        )}
       </div>
     </div>
   );
