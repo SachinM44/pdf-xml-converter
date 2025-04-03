@@ -2,7 +2,6 @@
 
 A full-stack web application that allows users to convert PDF documents to structured XML format. Built with React, Node.js, and MongoDB.
 
-## 🔗 Live Demo
 
 The application is deployed and available at: [https://pdf-xml-converter.netlify.app](https://pdf-xml-converter.netlify.app)
 
