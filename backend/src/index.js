@@ -8,7 +8,15 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+console.log('CORS configured for all origins');
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -22,7 +30,7 @@ mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTop
   .catch((err) => console.error(' MongoDB connection error:', err));
 
 app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api', require('./routes/conversion.routes'));
+app.use('/api/conversions', require('./routes/conversion.routes'));
 app.use('/api', require('./routes/system.routes'));  
 
 app.get('/', (req, res) => {
