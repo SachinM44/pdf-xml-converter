@@ -8,13 +8,11 @@ const auth = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for PDF uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -35,18 +33,17 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024
   }
 });
 
-// ✅ Apply auth ONLY to protected routes, NOT globally
 router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No PDF file uploaded' });
     }
 
-    console.log('File received:', req.file);
+    console.log('PDF upload received:', req.file.originalname);
 
     const conversion = new Conversion({
       userId: req.user._id,
@@ -82,7 +79,6 @@ router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
   }
 });
 
-// ✅ Apply auth to conversion history
 router.get('/history', auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -101,7 +97,6 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
-// ✅ Apply auth to get specific conversion
 router.get('/:id', auth, async (req, res) => {
   try {
     const conversion = await Conversion.findOne({
@@ -120,7 +115,6 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// ✅ Apply auth to download converted XML
 router.get('/:id/download', auth, async (req, res) => {
   try {
     const conversion = await Conversion.findOne({
@@ -136,6 +130,10 @@ router.get('/:id/download', auth, async (req, res) => {
       return res.status(400).json({ message: 'Conversion is not completed yet' });
     }
 
+    if (!conversion.convertedXml) {
+      return res.status(404).json({ message: 'Converted XML not found' });
+    }
+    
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Disposition', `attachment; filename=${conversion.originalFileName.replace('.pdf', '.xml')}`);
     
@@ -146,29 +144,34 @@ router.get('/:id/download', auth, async (req, res) => {
   }
 });
 
-// Helper function to process PDF
 async function processPDF(filePath, conversionId) {
   try {
+    console.log(`Processing PDF for conversion: ${conversionId}`);
     const dataBuffer = fs.readFileSync(filePath);
     const data = await pdfParse(dataBuffer);
 
     const xml = convertToXML(data);
 
-    await Conversion.findByIdAndUpdate(conversionId, {
+    const updated = await Conversion.findByIdAndUpdate(conversionId, {
       convertedXml: xml,
       status: 'completed'
-    }).exec();
+    }, { new: true }).exec();
+    
+    console.log(`Conversion ${updated._id} completed successfully`);
 
     fs.unlink(filePath, (err) => {
       if (err) console.error('Error deleting processed file:', err);
     });
   } catch (error) {
     console.error('PDF processing error:', error);
+    await Conversion.findByIdAndUpdate(conversionId, {
+      status: 'failed',
+      error: error.message || 'Unknown error during processing'
+    }).exec();
     throw new Error('Error processing PDF: ' + error.message);
   }
 }
 
-// Helper function to escape XML special characters
 function escapeXml(unsafe) {
   if (!unsafe) return '';
   return unsafe
@@ -182,11 +185,10 @@ function escapeXml(unsafe) {
     .replace(/[\uFDD0-\uFDEF\uFFFE\uFFFF\u0000]/g, '');
 }
 
-// Helper function to convert PDF data to XML
 function convertToXML(data) {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<document>\n';
-
+  
   xml += '  <metadata>\n';
   xml += `    <title>${escapeXml(data.info?.Title || 'Untitled')}</title>\n`;
   xml += `    <author>${escapeXml(data.info?.Author || 'Unknown')}</author>\n`;
@@ -196,23 +198,67 @@ function convertToXML(data) {
   xml += '  </metadata>\n';
 
   xml += '  <content>\n';
-
+  
   const pages = data.text.split('\n\n\n');
   pages.forEach((page, index) => {
     xml += `    <page number="${index + 1}">\n`;
+    
     const lines = page.split('\n');
+    let currentList = null;
+    let currentTable = null;
+    let tableRows = [];
+    
     lines.forEach(line => {
       const trimmedLine = line.trim();
       if (!trimmedLine) return;
-      xml += `      <paragraph>${escapeXml(trimmedLine)}</paragraph>\n`;
+
+      if (trimmedLine.match(/^[-•*]\s/)) {
+        if (!currentList) {
+          xml += '      <list>\n';
+          currentList = true;
+        }
+        xml += `        <list-item>${escapeXml(trimmedLine.replace(/^[-•*]\s/, ''))}</list-item>\n`;
+      } else if (currentList) {
+        xml += '      </list>\n';
+        currentList = null;
+      }
+
+      if (trimmedLine.includes('|')) {
+        if (!currentTable) {
+          xml += '      <table>\n';
+          currentTable = true;
+        }
+        const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell);
+        if (cells.length > 0) {
+          xml += '        <row>\n';
+          cells.forEach(cell => {
+            xml += `          <cell>${escapeXml(cell)}</cell>\n`;
+          });
+          xml += '        </row>\n';
+        }
+      } else if (currentTable) {
+        xml += '      </table>\n';
+        currentTable = null;
+      }
+
+      if (trimmedLine.length < 100 && trimmedLine.match(/^[A-Z\s]{3,}$/)) {
+        xml += `      <header>${escapeXml(trimmedLine)}</header>\n`;
+      }
+      else if (!currentList && !currentTable) {
+        xml += `      <paragraph>${escapeXml(trimmedLine)}</paragraph>\n`;
+      }
     });
+
+    if (currentList) xml += '      </list>\n';
+    if (currentTable) xml += '      </table>\n';
+
     xml += '    </page>\n';
   });
 
   xml += '  </content>\n';
   xml += '</document>';
-
+  
   return xml;
 }
 
-module.exports = router;
+module.exports = router; 
