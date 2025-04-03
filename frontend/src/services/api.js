@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Debugging: Check if VITE_API_URL is correctly loaded
+console.log("Loaded API URL from env:", import.meta.env.VITE_API_URL);
+
+// Set API URL (fallback to localhost if undefined)
+export const API_URL = import.meta.env.VITE_API_URL 
+  ? import.meta.env.VITE_API_URL 
+  : 'http://localhost:5000/api';
+
+console.log("Final API URL used:", API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -81,7 +89,7 @@ export const conversionService = {
       const formData = new FormData();
       formData.append('pdf', file);
       
-      const response = await api.post('/conversions/convert', formData, {
+      const response = await api.post('/convert', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -97,7 +105,7 @@ export const conversionService = {
   },
   getHistory: async (page = 1) => {
     try {
-      const response = await api.get(`/conversions/history?page=${page}&limit=10`);
+      const response = await api.get(`/history?page=${page}&limit=10`);
       return response.data;
     } catch (error) {
       console.error('Get history API error:', error);
@@ -106,13 +114,36 @@ export const conversionService = {
   },
   getConversion: async (id) => {
     try {
-      const response = await api.get(`/conversions/${id}`);
+      const response = await api.get(`/${id}`);
       return response.data;
     } catch (error) {
       console.error('Get conversion API error:', error);
       throw error;
     }
   },
+  downloadXML: async (id) => {
+    try {
+      const response = await api.get(`/${id}/download`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Download XML API error:', error);
+      throw error;
+    }
+  },
 };
 
-export default api; 
+// Add health check function
+export const checkBackendHealth = async () => {
+  try {
+    const response = await api.get('/health');
+    console.log('Backend health check:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Backend health check failed:', error);
+    throw error;
+  }
+};
+
+export default api;

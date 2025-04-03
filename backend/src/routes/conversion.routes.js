@@ -39,7 +39,7 @@ const upload = multer({
   }
 });
 
-// Upload and convert PDF
+// ✅ Apply auth ONLY to protected routes, NOT globally
 router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
@@ -48,7 +48,6 @@ router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
 
     console.log('File received:', req.file);
 
-    // Create conversion record
     const conversion = new Conversion({
       userId: req.user._id,
       originalFileName: req.file.originalname,
@@ -57,7 +56,6 @@ router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
     });
     await conversion.save();
 
-    // Process PDF in background
     processPDF(req.file.path, conversion._id).catch(error => {
       console.error('PDF processing error:', error);
       Conversion.findByIdAndUpdate(conversion._id, {
@@ -72,7 +70,6 @@ router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    // Clean up uploaded file if it exists
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, (err) => {
         if (err) console.error('Error deleting file:', err);
@@ -85,7 +82,7 @@ router.post('/convert', auth, upload.single('pdf'), async (req, res) => {
   }
 });
 
-// Get user's conversion history
+// ✅ Apply auth to conversion history
 router.get('/history', auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -104,7 +101,7 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
-// Get specific conversion
+// ✅ Apply auth to get specific conversion
 router.get('/:id', auth, async (req, res) => {
   try {
     const conversion = await Conversion.findOne({
@@ -123,7 +120,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Download converted XML
+// ✅ Apply auth to download converted XML
 router.get('/:id/download', auth, async (req, res) => {
   try {
     const conversion = await Conversion.findOne({
@@ -139,11 +136,9 @@ router.get('/:id/download', auth, async (req, res) => {
       return res.status(400).json({ message: 'Conversion is not completed yet' });
     }
 
-    // Set headers for XML download
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Disposition', `attachment; filename=${conversion.originalFileName.replace('.pdf', '.xml')}`);
     
-    // Send the XML content
     res.send(conversion.convertedXml);
   } catch (error) {
     console.error('Download error:', error);
@@ -157,16 +152,13 @@ async function processPDF(filePath, conversionId) {
     const dataBuffer = fs.readFileSync(filePath);
     const data = await pdfParse(dataBuffer);
 
-    // Convert to XML (basic structure)
     const xml = convertToXML(data);
 
-    // Update conversion record
     await Conversion.findByIdAndUpdate(conversionId, {
       convertedXml: xml,
       status: 'completed'
     }).exec();
 
-    // Clean up the file after processing
     fs.unlink(filePath, (err) => {
       if (err) console.error('Error deleting processed file:', err);
     });
@@ -185,18 +177,16 @@ function escapeXml(unsafe) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
-    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '') // Remove surrogate pairs
-    .replace(/[\uFDD0-\uFDEF\uFFFE\uFFFF\u0000]/g, ''); // Remove non-characters
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+    .replace(/[\uFDD0-\uFDEF\uFFFE\uFFFF\u0000]/g, '');
 }
 
 // Helper function to convert PDF data to XML
 function convertToXML(data) {
-  // Basic XML structure
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<document>\n';
-  
-  // Add metadata
+
   xml += '  <metadata>\n';
   xml += `    <title>${escapeXml(data.info?.Title || 'Untitled')}</title>\n`;
   xml += `    <author>${escapeXml(data.info?.Author || 'Unknown')}</author>\n`;
@@ -205,76 +195,24 @@ function convertToXML(data) {
   xml += `    <modificationDate>${escapeXml(data.info?.ModDate || 'Unknown')}</modificationDate>\n`;
   xml += '  </metadata>\n';
 
-  // Add content
   xml += '  <content>\n';
-  
-  // Split text into pages
+
   const pages = data.text.split('\n\n\n');
   pages.forEach((page, index) => {
     xml += `    <page number="${index + 1}">\n`;
-    
-    // Process each line to detect structure
     const lines = page.split('\n');
-    let currentList = null;
-    let currentTable = null;
-    let tableRows = [];
-    
     lines.forEach(line => {
       const trimmedLine = line.trim();
       if (!trimmedLine) return;
-
-      // Detect lists
-      if (trimmedLine.match(/^[-•*]\s/)) {
-        if (!currentList) {
-          xml += '      <list>\n';
-          currentList = true;
-        }
-        xml += `        <list-item>${escapeXml(trimmedLine.replace(/^[-•*]\s/, ''))}</list-item>\n`;
-      } else if (currentList) {
-        xml += '      </list>\n';
-        currentList = null;
-      }
-
-      // Detect tables
-      if (trimmedLine.includes('|')) {
-        if (!currentTable) {
-          xml += '      <table>\n';
-          currentTable = true;
-        }
-        const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell);
-        if (cells.length > 0) {
-          xml += '        <row>\n';
-          cells.forEach(cell => {
-            xml += `          <cell>${escapeXml(cell)}</cell>\n`;
-          });
-          xml += '        </row>\n';
-        }
-      } else if (currentTable) {
-        xml += '      </table>\n';
-        currentTable = null;
-      }
-
-      // Detect headers
-      if (trimmedLine.length < 100 && trimmedLine.match(/^[A-Z\s]{3,}$/)) {
-        xml += `      <header>${escapeXml(trimmedLine)}</header>\n`;
-      }
-      // Detect paragraphs
-      else if (!currentList && !currentTable) {
-        xml += `      <paragraph>${escapeXml(trimmedLine)}</paragraph>\n`;
-      }
+      xml += `      <paragraph>${escapeXml(trimmedLine)}</paragraph>\n`;
     });
-
-    // Close any open elements
-    if (currentList) xml += '      </list>\n';
-    if (currentTable) xml += '      </table>\n';
-
     xml += '    </page>\n';
   });
 
   xml += '  </content>\n';
   xml += '</document>';
-  
+
   return xml;
 }
 
-module.exports = router; 
+module.exports = router;

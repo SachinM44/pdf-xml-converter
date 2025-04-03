@@ -4,7 +4,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { checkBackendHealth } from './services/api';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -21,6 +22,19 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
+  useEffect(() => {
+    const verifyBackendConnection = async () => {
+      try {
+        await checkBackendHealth();
+        console.log('Successfully connected to backend');
+      } catch (error) {
+        console.error('Failed to connect to backend:', error);
+      }
+    };
+
+    verifyBackendConnection();
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
