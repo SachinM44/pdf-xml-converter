@@ -88,6 +88,18 @@ export default function Register() {
       subtitle="Or sign in to your existing account"
       onSubmit={handleSubmit}
     >
+      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+        <h3 className="text-sm font-medium text-yellow-800 mb-2">Important: First time here?</h3>
+        <p className="text-sm text-yellow-700 mb-2">
+          You need to accept our backend certificate before registering.
+        </p>
+        <ol className="list-decimal text-sm text-yellow-700 pl-5">
+          <li>Visit <a href="https://13.60.82.211/api/health" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">https://13.60.82.211/api/health</a></li>
+          <li>Click "Advanced"</li>
+          <li>Click "Proceed" to accept the certificate warning</li>
+        </ol>
+      </div>
+
       <Input
         label="Full Name"
         type="text"

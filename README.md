@@ -5,6 +5,22 @@ A full-stack web application that allows users to convert PDF documents to struc
 
 The application is deployed and available at: [https://pdf-xml-converter.netlify.app](https://pdf-xml-converter.netlify.app)
 
+## ⚠️ Important Note for First-Time Users
+
+This application uses a secure HTTPS connection with a self-signed certificate for the backend API. When you first visit the site, you'll need to accept the certificate:
+
+1. Visit [https://13.60.82.211/api/health](https://13.60.82.211/api/health) directly
+2. Click "Advanced" in the browser warning
+3. Click "Proceed" to accept the certificate
+
+**Why a self-signed certificate?** 
+- We implemented HTTPS to ensure secure data transmission between the frontend and backend
+- The self-signed certificate provides encryption without the cost of a commercial certificate
+- This approach demonstrates security best practices in a development environment
+- In a production environment, we would use a proper CA-issued certificate
+
+This implementation showcases both security awareness and a practical solution for secure API communication in a development context.
+
 ## 📋 Challenge Implementation
 
 This project was developed for the "Full Stack Developer Intern Coding Challenge" and implements the **Level 3 (Advanced Implementation)** requirements. The key features include:
@@ -41,6 +57,8 @@ This project was developed for the "Full Stack Developer Intern Coding Challenge
 - ✅ Responsive Design
 - ✅ XML Search & Filter
 - ✅ Progress Indicators
+- ✅ Secure HTTPS Communication
+- ✅ Continuous Server Operation (PM2)
 
 ## 📝 Approach to PDF-to-XML Conversion
 
@@ -53,6 +71,17 @@ The conversion process involves several steps:
 5. **Layout Maintenance**: Preserving the spatial relationships between elements
 
 The conversion is performed asynchronously, allowing users to continue using the application while their documents are being processed.
+
+## 🔒 Security Features
+- JWT Authentication
+- Password Hashing
+- Protected Routes
+- File Type Validation
+- Error Handling
+- Input Sanitization
+- HTTPS with SSL/TLS Encryption
+- Nginx Reverse Proxy
+- Proper CORS Configuration
 
 ## 🚀 Getting Started
 
@@ -126,6 +155,9 @@ The application will be available at `http://localhost:5173`
 - MongoDB
 - JWT Authentication
 - Multer (File Upload)
+- PM2 Process Manager
+- Nginx (Reverse Proxy)
+- SSL/TLS for HTTPS
 
 ## 📁 Project Structure
 
@@ -150,14 +182,6 @@ pdf-xml-converter/
 │   └── package.json
 └── README.md
 ```
-
-## 🔒 Security Features
-- JWT Authentication
-- Password Hashing
-- Protected Routes
-- File Type Validation
-- Error Handling
-- Input Sanitization
 
 ## 💻 Development
 
@@ -188,8 +212,9 @@ npm run lint
 
 The application is deployed on:
 - Frontend: Netlify ([https://pdf-xml-converter.netlify.app](https://pdf-xml-converter.netlify.app))
-- Backend: AWS EC2 instance
+- Backend: AWS EC2 instance with PM2 for 24/7 operation
 - Database: MongoDB Atlas
+- Security: Nginx reverse proxy with SSL/TLS
 
 ## 🔍 Limitations and Future Improvements
 
@@ -197,6 +222,7 @@ The application is deployed on:
 - Currently supports PDFs up to 5MB in size
 - Complex tables with merged cells may not preserve exact structure
 - Some highly specialized PDF features may not be fully supported
+- Using a self-signed certificate (would use a proper CA certificate in production)
 
 ### Future Improvements
 - Add batch processing for multiple files
@@ -204,6 +230,7 @@ The application is deployed on:
 - Add additional export formats (JSON, CSV)
 - Improve performance for very large documents
 - Add collaborative features for team environments
+- Replace self-signed certificate with a CA-issued certificate
 
 ## 🤝 Contributing
 
